@@ -15,3 +15,4 @@
 - [ ] Game modes
 - [ ] Game sounds
 - [ ] Serve
+- [x] Use `requestAnimationFrame` instead of `setInterval`

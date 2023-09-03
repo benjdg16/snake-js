@@ -1,21 +1,17 @@
-/**
- * TODO: Window.requestAnimationFrame
- */
-
 // Variables
 const CANVAS_HEIGHT = 400;
 const CANVAS_WIDTH = 400;
 let SCORE = 0;
+let GAME_OVER = false;
+let fps = 60;
+let fpsInterval, now, then, elapsed;
 
-const SNAKE_COLOR = "black";
 const SNAKE_SIZE = 20;
-// const SNAKE_START_POS = [CANVAS_WIDTH / 2, CANVAS_WIDTH / 2];
-
 const SNAKE_HEAD_COLOR = "#618833";
 const SNAKE_BODY_COLOR = "#8bc34a";
 const SNAKE_TAIL_COLOR = "#a2cf6e";
 
-const APPLE_COLOR = "red";
+const APPLE_COLOR = "#aa2e25";
 
 // DOM Selectors
 const el_body = document.body;
@@ -34,9 +30,13 @@ class Snake {
 			{ x: this.x + 1, y: this.y + 1 },
 		];
 		this.rotateX = 0;
-		this.rotateY = -1; // default going up at start
+		this.rotateY = -1; // Note: Default going up;
 	}
 
+	/**
+	 * Note: Negative in y-axis means going up since canvas grows at the bottom-right
+	 * Prevent user from going back on the other direction (L-R) or (U-D)
+	 */
 	move() {
 		let newRect;
 
@@ -62,9 +62,6 @@ class Snake {
 			};
 		}
 
-		// console.log(`newRect`);
-		// console.log(newRect);
-
 		this.body.shift();
 		this.body.push(newRect);
 	}
@@ -76,7 +73,7 @@ class Apple {
 		this.snakeTail = snake.body;
 		this.isTouching;
 		this.size = this.snakeSize;
-		this.color = "red";
+		this.color = APPLE_COLOR;
 
 		while (true) {
 			this.isTouching = false;
@@ -94,7 +91,7 @@ class Apple {
 			}
 
 			this.size = this.snakeSize;
-			this.color = "red";
+			this.color = APPLE_COLOR;
 
 			if (!this.isTouching) {
 				break;
@@ -105,7 +102,6 @@ class Apple {
 
 const snake = new Snake(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, SNAKE_SIZE);
 let apple = new Apple(snake);
-let gameInterval;
 
 // Helpers
 function setDefaults() {
@@ -115,13 +111,26 @@ function setDefaults() {
 }
 
 function gameLoop() {
-	gameInterval = setInterval(renderCanvas, 1000 / 24);
-	// renderCanvas();
+	fpsInterval = 1000 / fps;
+	then = Date.now();
+
+	window.requestAnimationFrame(renderCanvas);
 }
 
-function renderCanvas() {
-	updateStates();
-	paintCanvas();
+function renderCanvas(timeStamp) {
+	if (!GAME_OVER) {
+		window.requestAnimationFrame(renderCanvas);
+	}
+
+	now = Date.now();
+	elapsed = now - then;
+
+	if (elapsed > fpsInterval) {
+		then = now - (elapsed % fpsInterval);
+
+		updateStates();
+		paintCanvas();
+	}
 }
 
 function updateStates() {
@@ -131,8 +140,7 @@ function updateStates() {
 }
 
 function paintCanvas() {
-	createRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, SNAKE_COLOR);
-	createRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+	createRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, "black");
 
 	for (let i = 0; i < snake.body.length; i++) {
 		// Add snake color here; easier than snake class; and this is the ui method anyways
@@ -172,8 +180,7 @@ function checkBoundaries() {
 	snake.body.forEach((position, index) => {
 		if (index !== snake.body.length - 1) {
 			if (position.x === headTail.x && position.y === headTail.y) {
-				console.log(`GAMEOVER`);
-				clearInterval(gameInterval);
+				GAME_OVER = true;
 			}
 		}
 	});
