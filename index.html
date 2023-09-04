@@ -10,13 +10,22 @@
 		<!-- Put script here to avoid nullish selectors -->
 		<div class="game-container">
 			<div class="text-container">
-				<h2 class="title">SnakeJS</h2>
-				<div class="score-container">
-					<h2 class="score">Score:</h2>
-					<h2 class="score-value"></h2>
+				<h3 class="title">SnakeJS</h3>
+				<div class="info-container">
+					<div class="score-container">
+						<h3 class="score">Score:</h3>
+						<h3 class="score-value"></h3>
+					</div>
+					<div class="hi-score-container">
+						<h3 class="hi-score">Hi-Score:</h3>
+						<h3 class="hi-score-value"></h3>
+					</div>
 				</div>
 			</div>
 			<canvas id="snake-canvas"></canvas>
+			<div class="game-controls">
+				<button class="btn-start">Start</button>
+			</div>
 		</div>
 		<script src="index.js"></script>
 	</body>

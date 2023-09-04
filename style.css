@@ -3,7 +3,7 @@ body {
 	height: 100vh;
 	width: 100vh;
 	margin: 0 auto;
-	font-family: "Courier New", Courier, monospace;
+	font-family: Consolas, "courier new";
 }
 
 .game-container {
@@ -24,11 +24,47 @@ body {
 	color: white;
 }
 
-.score-container {
+.info-container {
 	display: flex;
-	gap: 8px;
+	align-items: center;
+	gap: 16px;
 }
 
-canvas {
-	background-color: rgb(244, 244, 244);
+.score-container {
+	display: flex;
+	align-items: center;
+}
+
+.new-hi-score {
+	color: #a2cf6e;
+}
+
+.hi-score-container {
+	color: #618833;
+	display: flex;
+	align-items: center;
+}
+
+#snake-canvas {
+	background-color: rgb(69, 69, 69);
+}
+
+.game-controls {
+	margin: 16px 0;
+}
+
+.btn-start {
+	font-size: 16px;
+	background: white;
+	color: black;
+	border: 3px solid black !important;
+	border-radius: 0;
+	box-shadow: 2px 2px black, 3px 3px white;
+	padding: 20px;
+}
+
+.btn-start:hover {
+	color: black;
+	background: rgb(125, 125, 125);
+	cursor: pointer;
 }

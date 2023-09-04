@@ -1,22 +1,47 @@
 // Variables
+// Environment
 const CANVAS_HEIGHT = 400;
 const CANVAS_WIDTH = 400;
-let SCORE = 0;
-let GAME_OVER = false;
-let fps = 60;
-let fpsInterval, now, then, elapsed;
+const FPS = 60;
+const DEFAULT_LEVEL = 1;
+const SS_HI_SCORE_KEY = "SNAKE-JS_SCORE";
+const NEW_HI_SCORE_CLASS = "new-hi-score"; // Note: Added in CSS
 
+let SCORE = 0;
+let HI_SCORE = 0;
+let GAME_OVER = false;
+let FPS_INTERVAL, START_INTERVAL;
+
+// Class variables
 const SNAKE_SIZE = 20;
 const SNAKE_HEAD_COLOR = "#618833";
 const SNAKE_BODY_COLOR = "#8bc34a";
 const SNAKE_TAIL_COLOR = "#a2cf6e";
+const SNAKE_MOVES = {
+	x: {
+		RETAIN: 0,
+		RIGHT: 1,
+		LEFT: -1,
+	},
+	y: {
+		RETAIN: 0,
+		UP: -1,
+		DOWN: 1, // Down is positive since canvas is increasing from top-left to bottom-right
+	},
+};
 
-const APPLE_COLOR = "#aa2e25";
+const APPLE_COLOR = "#C03131";
+
+let snake;
+let apple;
 
 // DOM Selectors
 const el_body = document.body;
 const el_canvas = document.getElementById("snake-canvas");
+const el_score_container = document.querySelector(".score-container");
 const el_score_value = document.querySelector(".score-value");
+const el_hi_score_value = document.querySelector(".hi-score-value");
+const el_btn_start = document.querySelector(".btn-start");
 const canvasCtx = el_canvas.getContext("2d");
 
 // Classes
@@ -27,56 +52,55 @@ class Snake {
 		this.size = size;
 		this.body = [
 			{ x: this.x, y: this.y },
-			{ x: this.x + 1, y: this.y + 1 },
+			{ x: this.x, y: this.y }, // Default body has 2 pixels to simulate a head and a tail
 		];
-		this.rotateX = 0;
-		this.rotateY = -1; // Note: Default going up;
+		this.rotateX = SNAKE_MOVES.x.RETAIN;
+		this.rotateY = SNAKE_MOVES.y.UP; // Note: Default going up;
 	}
 
 	/**
 	 * Note: Negative in y-axis means going up since canvas grows at the bottom-right
-	 * Prevent user from going back on the other direction (L-R) or (U-D)
+	 * Note: Prevent user from going back on the other direction (L-R) or (U-D)
 	 */
 	move() {
 		let newRect;
 
-		if (this.rotateX === 1) {
+		if (this.rotateX === SNAKE_MOVES.x.RIGHT) {
 			newRect = {
 				x: this.body[this.body.length - 1].x + this.size,
 				y: this.body[this.body.length - 1].y,
 			};
-		} else if (this.rotateX === -1) {
+		} else if (this.rotateX === SNAKE_MOVES.x.LEFT) {
 			newRect = {
 				x: this.body[this.body.length - 1].x - this.size,
 				y: this.body[this.body.length - 1].y,
 			};
-		} else if (this.rotateY === 1) {
+		} else if (this.rotateY === SNAKE_MOVES.y.DOWN) {
 			newRect = {
 				x: this.body[this.body.length - 1].x,
 				y: this.body[this.body.length - 1].y + this.size,
 			};
-		} else if (this.rotateY === -1) {
+		} else if (this.rotateY === SNAKE_MOVES.y.UP) {
 			newRect = {
 				x: this.body[this.body.length - 1].x,
 				y: this.body[this.body.length - 1].y - this.size,
 			};
 		}
 
-		this.body.shift();
-		this.body.push(newRect);
+		this.body.shift(); // Remove tail on next paint
+		this.body.push(newRect); // Push new head on next paint
 	}
 }
 
 class Apple {
 	constructor(snake) {
 		this.snakeSize = snake.size;
-		this.snakeTail = snake.body;
-		this.isTouching;
+		this.snakeBody = snake.body;
+		this.isTouching = false;
 		this.size = this.snakeSize;
 		this.color = APPLE_COLOR;
 
 		while (true) {
-			this.isTouching = false;
 			this.x =
 				Math.floor((Math.random() * CANVAS_WIDTH) / this.snakeSize) *
 				this.snakeSize;
@@ -84,49 +108,64 @@ class Apple {
 				Math.floor((Math.random() * CANVAS_HEIGHT) / this.snakeSize) *
 				this.snakeSize;
 
-			for (let i = 0; i < this.snakeTail.length; i++) {
-				if (this.x == this.snakeTail[i].x && this.y == this.snakeTail[i].y) {
+			// This check prevents spawning the apple in the same position as the snake's body
+			for (let i = 0; i < this.snakeBody.length; i++) {
+				if (this.x == this.snakeBody[i].x && this.y == this.snakeBody[i].y) {
 					this.isTouching = true;
 				}
 			}
 
-			this.size = this.snakeSize;
-			this.color = APPLE_COLOR;
-
 			if (!this.isTouching) {
+				// Apple position is valid, get out of loop
 				break;
 			}
 		}
 	}
 }
 
-const snake = new Snake(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, SNAKE_SIZE);
-let apple = new Apple(snake);
-
 // Helpers
+// TODO: Reset also FPS_INTERVAL if levels are incorporated
 function setDefaults() {
+	const sessionHiScore = sessionStorage.getItem(SS_HI_SCORE_KEY);
+	HI_SCORE = sessionHiScore ? Number(sessionHiScore) : 0;
+	SCORE = 0;
+
 	el_canvas.height = CANVAS_HEIGHT;
 	el_canvas.width = CANVAS_WIDTH;
+	el_score_container.classList.remove(NEW_HI_SCORE_CLASS);
 	el_score_value.textContent = SCORE;
+	el_hi_score_value.textContent = HI_SCORE;
+
+	snake = new Snake(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, SNAKE_SIZE);
+	apple = new Apple(snake);
+
+	GAME_OVER = false;
 }
 
-function gameLoop() {
-	fpsInterval = 1000 / fps;
-	then = Date.now();
-
-	window.requestAnimationFrame(renderCanvas);
+// TODO: Incorporate levels
+function getFpsInterval(level = DEFAULT_LEVEL) {
+	return 1000 / 24;
 }
 
-function renderCanvas(timeStamp) {
+function triggerGameLoop() {
+	FPS_INTERVAL = getFpsInterval();
+	START_INTERVAL = Date.now();
+
+	// window.requestAnimationFrame(renderCanvas);
+	renderCanvas();
+}
+
+function renderCanvas() {
 	if (!GAME_OVER) {
 		window.requestAnimationFrame(renderCanvas);
 	}
 
-	now = Date.now();
-	elapsed = now - then;
+	const now = Date.now();
+	const elapsed = now - START_INTERVAL;
 
-	if (elapsed > fpsInterval) {
-		then = now - (elapsed % fpsInterval);
+	if (elapsed > FPS_INTERVAL) {
+		// TODO: Recompute interval here if level is incorporated
+		START_INTERVAL = now - (elapsed % FPS_INTERVAL);
 
 		updateStates();
 		paintCanvas();
@@ -162,6 +201,13 @@ function paintCanvas() {
 	createRect(apple.x, apple.y, apple.size, apple.size, apple.color);
 }
 
+function createRect(x, y, width, height, color) {
+	if (canvasCtx) {
+		canvasCtx.fillStyle = color;
+		canvasCtx.fillRect(x, y, width, height);
+	}
+}
+
 function checkBoundaries() {
 	let headTail = snake.body[snake.body.length - 1];
 
@@ -175,8 +221,6 @@ function checkBoundaries() {
 		headTail.y = CANVAS_HEIGHT;
 	}
 
-	// console.log(snake.body);
-	// console.log(headTail);
 	snake.body.forEach((position, index) => {
 		if (index !== snake.body.length - 1) {
 			if (position.x === headTail.x && position.y === headTail.y) {
@@ -186,79 +230,109 @@ function checkBoundaries() {
 	});
 }
 
-function createRect(x, y, width, height, color) {
-	if (canvasCtx) {
-		canvasCtx.fillStyle = color;
-		canvasCtx.fillRect(x, y, width, height);
-	}
-}
-
 function checkApple() {
 	if (
 		snake.body[snake.body.length - 1].x === apple.x &&
 		snake.body[snake.body.length - 1].y === apple.y
 	) {
 		SCORE = SCORE + 1;
+
+		if (SCORE > HI_SCORE) {
+			sessionStorage.setItem(SS_HI_SCORE_KEY, SCORE);
+			HI_SCORE = SCORE;
+			el_score_container.classList.add(NEW_HI_SCORE_CLASS);
+		}
+
 		el_score_value.textContent = SCORE;
-		snake.body.push({ x: apple.x, y: apple.y }); // push
+		el_hi_score_value.textContent = HI_SCORE;
+		snake.body.push({ x: apple.x, y: apple.y }); // Push current position of apple to snake body to "feed" it
 		apple = new Apple(snake);
 	}
 }
 
 // Event handlers
 function handleKeyDown(e) {
-	let headTail = snake.body[snake.body.length - 1];
+	const snakeHead = snake.body[snake.body.length - 1];
 
-	//not an efficient check
+	// Note: Not an efficient check but prevents a bug that lets the snake
+	// continue beyond boundaries.
+	// Note: Prevent an event when beyond canvas boundaries
 	if (
-		headTail.x >= CANVAS_WIDTH ||
-		headTail.x < 0 ||
-		headTail.y >= CANVAS_HEIGHT ||
-		headTail.y < 0
+		snakeHead.x >= CANVAS_WIDTH ||
+		snakeHead.x < 0 ||
+		snakeHead.y >= CANVAS_HEIGHT ||
+		snakeHead.y < 0
 	) {
 		return;
 	}
 
-	switch (e.key) {
-		case "ArrowUp":
-			if (snake.rotateY !== 1) {
-				snake.rotateX = 0;
-				snake.rotateY = -1; // down is bigger so up should be negative
+	const DIRECTIONS = {
+		UP: "UP",
+		RIGHT: "RIGHT",
+		DOWN: "DOWN",
+		LEFT: "LEFT",
+	};
+
+	let translatedKey;
+
+	if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") {
+		translatedKey = DIRECTIONS.UP;
+	} else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
+		translatedKey = DIRECTIONS.RIGHT;
+	} else if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") {
+		translatedKey = DIRECTIONS.DOWN;
+	} else if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
+		translatedKey = DIRECTIONS.LEFT;
+	}
+
+	switch (translatedKey) {
+		case DIRECTIONS.UP:
+			if (snake.rotateY !== SNAKE_MOVES.y.DOWN) {
+				snake.rotateX = SNAKE_MOVES.x.RETAIN;
+				snake.rotateY = SNAKE_MOVES.y.UP;
 			}
 			break;
-		case "ArrowRight":
-			if (snake.rotateX !== -1) {
-				snake.rotateX = 1;
-				snake.rotateY = 0;
+		case DIRECTIONS.RIGHT:
+			if (snake.rotateX !== SNAKE_MOVES.x.LEFT) {
+				snake.rotateX = SNAKE_MOVES.x.RIGHT;
+				snake.rotateY = SNAKE_MOVES.y.RETAIN;
 			}
 			break;
-		case "ArrowDown":
-			if (snake.rotateY !== -1) {
-				snake.rotateX = 0;
-				snake.rotateY = 1;
+		case DIRECTIONS.DOWN:
+			if (snake.rotateY !== SNAKE_MOVES.y.UP) {
+				snake.rotateX = SNAKE_MOVES.x.RETAIN;
+				snake.rotateY = SNAKE_MOVES.y.DOWN;
 			}
 			break;
-		case "ArrowLeft":
-			if (snake.rotateX !== 1) {
-				snake.rotateX = -1;
-				snake.rotateY = 0;
+		case DIRECTIONS.LEFT:
+			if (snake.rotateX !== SNAKE_MOVES.x.RIGHT) {
+				snake.rotateX = SNAKE_MOVES.x.LEFT;
+				snake.rotateY = SNAKE_MOVES.y.RETAIN;
 			}
 			break;
 		default:
-			console.log(`Invalid`);
+			break;
 	}
 }
 
+function handleBtnStart() {
+	if (GAME_OVER) {
+		setDefaults();
+	}
+
+	triggerGameLoop();
+}
+
 // Event bindings
-// function eventBindings() {
-window.addEventListener("keydown", handleKeyDown);
-// }
+function eventBindings() {
+	window.addEventListener("keydown", handleKeyDown);
+	el_btn_start.addEventListener("click", handleBtnStart);
+}
 
 // Initialize
 function init() {
 	setDefaults();
-	// eventBindings();
-	gameLoop();
+	eventBindings();
 }
 
 document.addEventListener("DOMContentLoaded", function () {
